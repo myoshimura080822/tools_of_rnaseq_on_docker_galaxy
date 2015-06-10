@@ -1,5 +1,5 @@
-<tool id="SCDEwrapper" name="SCDEwrapper" version="0.01">
-<description>Estimates differential gene expression for  single-cell RNA-seq measurements</description>
+<tool id="SCDE_Wrapper" name="SCDE_Wrapper" version="0.01">
+<description>Wrapper of SCDE, tools of estimates DEG for single-cell</description>
 
 <command interpreter="python">
 
@@ -11,13 +11,13 @@
 <param name="notuse_flex" type="boolean" truevalue="TRUE" falsevalue="FALSE" checked="true" label="Use a fast threshold-based segmentation during cross-fit (No: Use FlexMix)"/>
 <param name="dropout_base" type="integer" label="Input number of reads to use to guess which genes may have 'failed' to be detected in a given measurement during cross-cell comparison" value="4"/> 
 <param name="failed_base" type="integer" label="Input minimal number of non-failed observations required for a gene to be used in the final model fitting" value="3"/> 
-<param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="SCDEwrapper"/> 
+<param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="SCDE_Wrapper"/> 
 
 </inputs>
 <outputs>
- <data format="tabular" name="tab_file" label="${job_name} on ${on_string}_expression.difference"/>
- <data format="tabular" name="count_fpkm" label="${job_name} on ${on_string}_fpkm"/>
- <data format="html" name="html_file" label="${job_name} on ${on_string}_output.html"/>
+ <data format="tabular" name="tab_file" label="${job_name} on ${on_string}: expression.difference"/>
+ <data format="tabular" name="count_fpkm" label="${job_name} on ${on_string}: fpkm"/>
+ <data format="html" name="html_file" label="${job_name} on ${on_string}: output.html"/>
 </outputs>
 <configfiles>
 <configfile name="runMe">

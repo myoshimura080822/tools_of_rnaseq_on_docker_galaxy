@@ -10,6 +10,7 @@
 <![CDATA[
     touch ./tmp_job.sh;echo "#!/bin/bash" > ./tmp_job.sh;
         echo "sailfish quant -i ${filter(lambda x:str(x[0]) == str($index_path), $__app__.tool_data_tables['sailfish_custom_indexes'].get_fields())[0][-1]}
+            -p 4
             #if $single_or_paired.single_or_paired_opts == 'single':
                 -l \"T=SE\"
                 -r <(gzip -dcf $single_or_paired.input_singles)
