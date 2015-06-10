@@ -1,0 +1,108 @@
+<tool id="AddGroupIdForDEGAnalysis" name="AddGroupIdForDEGAnalysis" version="0.01">
+<description>add group-id to header for DEG Analysis</description>
+
+<command interpreter="python">
+
+        AddGroupIdForDEGAnalysis.py --script_path "$runMe" --interpreter "python" 
+            --tool_name "AddHeaderForEdgeR" --input_tab "$input1"   --output_dir "./" --output_tab "$tab_file"
+</command>
+<inputs>
+<param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
+<param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="AddGroupIdForDEGAnalysis"/>
+</inputs>
+<outputs>
+ <data format="tabular" name="tab_file" label="${job_name} on ${on_string}"/>
+
+</outputs>
+<configfiles>
+<configfile name="runMe">
+# -*- coding: utf-8 -*-
+import sys
+import os
+print "python :" + sys.version
+import dateutil.tz
+import pandas as pd
+pd.set_option('multi_sparse', False)
+
+print u"AddGroupIdForDEGAnalysis.py Started......"
+
+inp = sys.argv[1]
+print u"inp: " + inp
+outp = sys.argv[2]
+print u"outp: " + outp
+
+def makeGroupname(col_name):
+        d = {}
+        for name in col_name:
+            key = name.split('_')[0]
+            d.setdefault(key,[])
+            d[key].append(0)
+        print d
+
+        glist = [ u"G" + str((x + 1)) + u":" + y for x,y in enumerate(d.keys()) ]
+        gname = [[g for i in range(len(d[g.split(':')[1]]))] for g in glist]
+        print gname
+        header_list = []
+        [header_list.extend(g) for g in gname]
+        header_list.append("#")
+        print sorted(header_list)
+        return sorted(header_list)
+
+def dataout(data, filename):
+        data.to_csv(filename, sep="\t", index=False, skip_blank_lines=True)
+
+def main():
+        try:
+            df = pd.read_csv(inp, delimiter='\t')
+            df = df.rename(columns={'target_id' : '#Feature'})
+            col_name = list(df.columns)
+            col_name.pop(0)
+            print col_name
+
+            g_header = makeGroupname(col_name)
+            print g_header
+            df.columns = pd.MultiIndex.from_tuples(zip(g_header, df.columns))
+            print df.columns
+            print df.head(3)
+
+            dataout(df, outp)
+
+        except IndexError:
+            sys.exit(1)
+
+if __name__ == '__main__':
+        main()
+
+print u"....All Done. End of Script"
+</configfile>
+</configfiles>
+
+
+        <tests>
+        <test>
+        <param name="input1" value="AddHeaderForEdgeR_test1_input.xls" ftype="tabular"/>
+        <param name="job_name" value="test1"/>
+        <param name="runMe" value="$runMe"/>
+        <output name="tab_file" file="AddHeaderForEdgeR_test1_output.xls" ftype="tabular"/>
+        </test>
+        </tests>
+        
+
+<help>
+
+This tool add group information header to count-data table for Galaxy edgeR-tool.
+
+**Attribution**
+This Galaxy tool was created by mika.yoshimura@riken.jp at 30/01/2015 16:38:14
+using the Galaxy Tool Factory.
+
+See https://bitbucket.org/fubar/galaxytoolfactory for details of that project
+Please cite: Creating re-usable tools from scripts: The Galaxy Tool Factory. Ross Lazarus; Antony Kaspi; Mark Ziemann; The Galaxy Team. 
+Bioinformatics 2012; doi: 10.1093/bioinformatics/bts573
+
+</help>
+<citations>
+    
+    <citation type="doi">10.1093/bioinformatics/bts573</citation>
+</citations>
+</tool>

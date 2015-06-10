@@ -1,0 +1,91 @@
+<tool id="JoinRefseqMouseGeneSymbol" name="JoinRefseqMouseGeneSymbol" version="0.01">
+<description>join table to mouse gene symbol data</description>
+
+<command interpreter="python">
+
+        JoinRefseqMouseGeneSymbol.py --script_path "$runMe" --interpreter "Rscript" 
+            --tool_name "JoinRefseqMouseGeneSymbol" --input_tab "$input1"   --output_dir "./" --output_tab "$tab_file" 
+</command>
+<inputs>
+<param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
+<param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="JoinRefseqMouseGeneSymbol"/> 
+
+</inputs>
+<outputs>
+ <data format="tabular" name="tab_file" label="${job_name} on ${on_string}"/>
+
+</outputs>
+<configfiles>
+<configfile name="runMe">
+cat("JoinRefseqMouseGeneSymbol Started......\n")
+cat("\n")
+
+library("dplyr")
+library("plyr")
+library("stringr")
+library(Mus.musculus)
+
+# transpose a tabular input file and write as a tabular output file
+ourargs = commandArgs(TRUE)
+inf = ourargs[1]
+outf = ourargs[2]
+cat("input file name:");inf
+cat("output file name:");outf
+cat("\n")
+
+deg_output &lt;- read.table(inf, header=T, row.names=1, sep="\t")
+head(deg_output);nrow(deg_output)
+
+deg_type = ifelse((ncol(deg_output)==4),"edger","scde")
+print(deg_type)
+
+deg_output\$REFSEQ &lt;- rownames(deg_output)
+ref_key = ifelse(grepl("ENSMUST",deg_output\$REFSEQ[1]),22,17)
+print(ref_key)
+
+mm = Mus.musculus
+mm_ant_ref&lt;- select(mm, keys=keys(mm, keytype=keytypes(mm)[ref_key]), columns=columns(mm)[c(ref_key,18)], keytype=keytypes(mm)[ref_key])
+names(mm_ant_ref)[1] &lt;- paste("REFSEQ")
+
+mm_ant_ref &lt;- subset(mm_ant_ref, select=c("REFSEQ", "SYMBOL"))
+mm_ant_ref &lt;- mm_ant_ref[!duplicated(mm_ant_ref\$REFSEQ),]
+head(mm_ant_ref);nrow(mm_ant_ref)
+
+merge_symbol &lt;- left_join(deg_output, mm_ant_ref, by="REFSEQ")
+head(merge_symbol);nrow(merge_symbol)
+
+write.table(merge_symbol, outf, quote=FALSE, sep="\t",row.names=F)
+
+cat("....All Done. End of Script\n")
+</configfile>
+</configfiles>
+
+
+        <tests>
+        <test>
+        <param name="input1" value="JoinRefseqMouseGeneSymbol_test1_input.xls" ftype="tabular"/>
+        <param name="job_name" value="test1"/>
+        <param name="runMe" value="$runMe"/>
+        <output name="tab_file" file="JoinRefseqMouseGeneSymbol_test1_output.xls" ftype="tabular"/>
+        </test>
+        </tests>
+        
+
+<help>
+
+Join table to mouse gene symbol (RefSeq in UCSC or Ensembl Transcriptome)
+
+**Attribution**
+This Galaxy tool was created by mika.yoshimura@riken.jp at 02/02/2015 15:15:09
+using the Galaxy Tool Factory.
+
+See https://bitbucket.org/fubar/galaxytoolfactory for details of that project
+Please cite: Creating re-usable tools from scripts: The Galaxy Tool Factory. Ross Lazarus; Antony Kaspi; Mark Ziemann; The Galaxy Team. 
+Bioinformatics 2012; doi: 10.1093/bioinformatics/bts573
+
+</help>
+<citations>
+    
+    <citation type="doi">10.1093/bioinformatics/bts573</citation>
+</citations>
+</tool>

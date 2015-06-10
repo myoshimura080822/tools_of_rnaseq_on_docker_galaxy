@@ -1,0 +1,188 @@
+<tool id="GetDatasetDatPath" name="GetDatasetDatPath" version="0.01">
+<description>get datfile-fullpath from eXpress or Sailfish output job</description>
+
+<command interpreter="python">
+
+        GetDatasetDatPath.py --script_path "$runMe" --interpreter "python" 
+            --tool_name "GetDatasetDatPath" --input_apikey "$input_apikey" --input_hname "$input_hname" --input_wftype "$input_wftype" 
+            --output_dir "./" --output_tab "$tab_file" 
+</command>
+
+<inputs>
+    <param name="job_name" size="30" type="text" label="Supply a name for the outputs to remind you what they contain " value="GetDatasetDatPath"/> 
+    <param name="input_apikey" size="50" type="text" label="Copy and Paste your API_KEY from Menu-bar[User]>[API keys]>[Current API key] " value="">
+        <validator type="empty_field" message="No API_KEY is available for the input text form"/>
+    </param>
+    <param name="input_hname" size="30" type="text" label="Supply your Current history name from top of history pain " value="">
+        <validator type="empty_field" message="No Current hitory name is available for the input text form"/>
+    </param>
+    <param name="input_wftype" type="select" label="Chouse of used quantification tool ">
+        <option value="sailfish">use Sailfish</option>
+        <option value="eXpress">use eXpress</option>
+    </param>
+</inputs>
+
+<outputs>
+ <data format="tabular" name="tab_file" label="${job_name}"/>
+</outputs>
+<configfiles>
+<configfile name="runMe">
+# -*- coding: utf-8 -*-
+import sys
+import os
+print "python :" + sys.version
+import ConfigParser
+sys.path.append('/usr/lib/python2.6/site-packages')
+import dateutil.tz
+import bioblend
+from bioblend.galaxy import GalaxyInstance
+from bioblend.galaxy.histories import HistoryClient
+from bioblend.galaxy.datasets import DatasetClient
+sys.path.append('/usr/lib64/python2.6/site-packages')
+import pandas
+
+print  os.getcwd()
+print u"GetDatasetDatPath.py Started......"
+
+inp = sys.argv[1]
+inp_apikey = sys.argv[2]
+inp_hname = sys.argv[3]
+inp_wftype = sys.argv[4]
+outp = sys.argv[5]
+print u"inp: " + inp
+print u"inp_apikey: " + inp_apikey
+print u"inp_hname: " + inp_hname
+print u"inp_wftype: " + inp_wftype
+print u"outp: " + outp
+
+if len(inp_apikey.strip()) == 0:
+    raise Exception, ' API_KEY is not entered.'
+
+if len(inp_hname.strip()) == 0:
+    raise Exception, 'Current History Name is not entered.'
+
+if "sailfish" in inp_wftype:
+    output_name = "quant_bias_corrected"
+    output_chk = "EstimatedNumReads"
+else:
+    output_name = "eXpress on data"
+    output_chk = "eff_counts"
+
+print output_name + " /file chk str:" + output_chk
+
+def makeDir(dname):
+    if os.path.exists(dname) is False:
+        os.mkdir(dname)
+        print '%s (dir) created.' % dname
+    else:
+        print '%s (dir) is already exists.' % dname
+
+def findDatfilePath(dClient, h_list, hname):
+    
+    dset_list = [dset for dset in [dClient.show_dataset(hst['id']) for hst in h_list] 
+        if dset['state'] == "ok" and dset['peek'] is not None]
+    dset_list = [dset for dset in dset_list if str(output_chk) in dset['peek']]
+    dset_df = pandas.DataFrame(dset_list)
+    dset_list = dset_df[["hid","name","id"]]
+    print dset_list
+
+    file_dir = '/galaxy-central/config/get_dataset_path_out'
+    makeDir(file_dir)
+    path_list = [dl_dset(dt_id, dClient, file_dir) for dt_id in dset_list["id"]]
+    path_df = pandas.DataFrame(path_list)
+    path_df.columns = ['id','file_name']
+    print path_df
+
+    merge_df = pandas.merge(dset_list, path_df, how='right', on='id', left_index=False, right_index=False)
+    print merge_df
+    
+    return merge_df
+
+def dl_dset(id, dClient, dir):
+    print id
+    file_path = dir + '/' + str(id)
+    dClient.download_dataset(id, file_path, use_default_filename=False)
+    ret_set = [id, file_path]
+    return ret_set
+
+def get_sample_name(path_list, hst_cont_all):
+    tmp01 = [item.split(':')[0].split(' ')[-1] for item in path_list['name']]
+    tmp02 = [item.split(' ')[-1] for item in tmp01]
+    path_list['mcf_hid'] = tmp02
+    tmp03 = [[item['name'] for item in hst_cont_all if item['hid'] == int(hid)] for hid in tmp02]
+    
+    pair_count = 0
+    pair_count = [item[0] for item in tmp03 if "mates" in item[0]]
+
+    if pair_count >0:
+        tmp04_bef = [item[0].replace(' on data ','|').split('|')[1].replace(',','') for item in tmp03]
+        tmp04 = [item.split(' ')[0] if 'reads' in item else item.split(' ')[2] for item in tmp04_bef]
+    else:
+        tmp04 = [item[0].replace(' on data ','|').split('|')[1].split(' ')[0] for item in tmp03]
+
+    path_list['sample_hid'] = tmp04
+    tmp05 = [[item['name'] for item in hst_cont_all if item['hid'] == int(hid)] for hid in tmp04]
+    tmp06 = [item[0].split('.')[0].replace('_1','') for item in tmp05]
+    
+    path_list['sample_name'] = tmp06
+    return path_list
+
+def dataout(data, filename):
+    data.to_csv(filename, sep="\t")
+
+def main():
+    GALAXY_URL = 'http://localhost:80/'
+    API_KEY = inp_apikey
+    gInstance = GalaxyInstance(url=GALAXY_URL, key=API_KEY)
+    hClient = HistoryClient(gInstance)
+    dClient = DatasetClient(gInstance)
+
+    hst = [x for x in hClient.get_histories() if x['name'].strip() == inp_hname.strip()][0]
+    if len(hst['id']) == 0:
+        raise Exception, inp_hname + ' is not found. please check your current history name.'
+    print hst['id']
+    hst_cont_all = hClient.show_history(hst['id'], deleted=False, contents=True, visible=True, details=True)
+    hst_cont_ok = [x for x in hst_cont_all if str(output_name) in x['name'] and x['deleted'] == False and x['state'] == 'ok' ]
+    if (len(hst_cont_ok) &gt; 0):
+        path_list = findDatfilePath(dClient, hst_cont_ok, hst['name'])
+        out_list = get_sample_name(path_list, hst_cont_all)
+        dataout(out_list, outp)
+    else:
+        raise Exception, inp_wftype + ' output file is not found.'
+        
+if __name__ == '__main__':
+        main()
+
+print u"....All Done. End of Script"
+</configfile>
+</configfiles>
+
+
+        <tests>
+        <test>
+        <param name="input1" value="GetDatasetDatPath_test1_input.xls" ftype="None"/>
+        <param name="job_name" value="test1"/>
+        <param name="runMe" value="$runMe"/>
+        <output name="tab_file" file="GetDatasetDatPath_test1_output.xls" ftype="tabular"/>
+        </test>
+        </tests>
+        
+
+<help>
+
+This tool get fullpath and make tablur file from eXpress or Sailfish output results in current history.
+
+**Attribution**
+This Galaxy tool was created by mika.yoshimura@riken.jp at 30/01/2015 16:21:41
+using the Galaxy Tool Factory.
+
+See https://bitbucket.org/fubar/galaxytoolfactory for details of that project
+Please cite: Creating re-usable tools from scripts: The Galaxy Tool Factory. Ross Lazarus; Antony Kaspi; Mark Ziemann; The Galaxy Team. 
+Bioinformatics 2012; doi: 10.1093/bioinformatics/bts573
+
+</help>
+<citations>
+    
+    <citation type="doi">10.1093/bioinformatics/bts573</citation>
+</citations>
+</tool>

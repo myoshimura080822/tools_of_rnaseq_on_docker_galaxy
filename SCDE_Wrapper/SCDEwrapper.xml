@@ -1,0 +1,134 @@
+<tool id="SCDEwrapper" name="SCDEwrapper" version="0.01">
+<description>Estimates differential gene expression for  single-cell RNA-seq measurements</description>
+
+<command interpreter="python">
+
+        SCDEwrapper.py --script_path "$runMe" --interpreter "Rscript" 
+            --tool_name "SCDEwrapper" --input_tab "$input1" --output_dir "$html_file.files_path" --notuse_flex "$notuse_flex" --dropout_base "$dropout_base" --failed_base "$failed_base" --output_tab "$tab_file" --output_html "$html_file" --make_HTML "yes" --count_fpkm "$count_fpkm" 
+</command>
+<inputs>
+<param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
+<param name="notuse_flex" type="boolean" truevalue="TRUE" falsevalue="FALSE" checked="true" label="Use a fast threshold-based segmentation during cross-fit (No: Use FlexMix)"/>
+<param name="dropout_base" type="integer" label="Input number of reads to use to guess which genes may have 'failed' to be detected in a given measurement during cross-cell comparison" value="4"/> 
+<param name="failed_base" type="integer" label="Input minimal number of non-failed observations required for a gene to be used in the final model fitting" value="3"/> 
+<param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="SCDEwrapper"/> 
+
+</inputs>
+<outputs>
+ <data format="tabular" name="tab_file" label="${job_name} on ${on_string}_expression.difference"/>
+ <data format="tabular" name="count_fpkm" label="${job_name} on ${on_string}_fpkm"/>
+ <data format="html" name="html_file" label="${job_name} on ${on_string}_output.html"/>
+</outputs>
+<configfiles>
+<configfile name="runMe">
+cat("SCDE Started......\n")
+cat("\n")
+
+library("scde")
+require(methods)
+
+ourargs = commandArgs(TRUE)
+inf = ourargs[1]
+outf = ourargs[2]
+notuse_flex = as.logical(ourargs[3])
+dropout_base = as.integer(ourargs[4])
+failed_base = as.integer(ourargs[5])
+count_fpkm = ourargs[6]
+cat("input file name:");inf
+cat("use threshold-based segmentation:");notuse_flex
+cat("use 'dropout' baseline used cross-cell comparison:");dropout_base
+cat("use 'failed gene' baseline used final model fitting:");failed_base
+cat("output file name:");outf
+cat("ouput fpkm:");count_fpkm
+cat("\n")
+
+inp_data &lt;- read.table(inf, sep="\t", comment="", as.is=T)
+head(inp_data)
+
+inp_data_groups &lt;- sapply(inp_data[1, -1], strsplit, ":")
+head(inp_data_groups);#mode(inp_data_groups)
+
+id = 0
+stk = ""
+for (i in 1:length(inp_data_groups)) {
+  g &lt;- make.names(inp_data_groups[[i]][2])
+  if (g!=stk){ id = 1}
+  names(inp_data_groups)[i] &lt;- paste(g, id, sep="_")
+  inp_data_groups[[i]] &lt;- inp_data_groups[[i]][-1]
+  stk = g
+  id = id + 1
+}
+
+header_d &lt;- as.data.frame(inp_data_groups);header_d
+inp_data_factor &lt;- unname(unlist(header_d[1,]));inp_data_factor
+
+rownames(inp_data) &lt;- inp_data[,1]
+
+samplename &lt;- inp_data[2,]
+colnames(inp_data) &lt;- samplename
+inp_data &lt;- inp_data[-(1:2), -1]
+
+#inp_data &lt;- inp_data[-(1:2), -1]
+#colnames(inp_data) &lt;- names(inp_data_groups)
+
+for(i in colnames(inp_data))
+  inp_data[, i] &lt;- as.numeric(inp_data[,i])
+
+head(inp_data)
+
+o.ifm &lt;- scde.error.models(counts=inp_data, groups=inp_data_factor, n.cores=4, threshold.segmentation=notuse_flex, min.count.threshold=dropout_base, min.nonfailed=failed_base, save.crossfit.plots=T, save.model.plots=T, verbose=1)
+head(o.ifm)
+
+o.ifm &lt;- o.ifm[o.ifm\$corr.a &gt; 0, ]
+
+fpkm &lt;- t((t(log(inp_data[,rownames(o.ifm),drop=F]))-o.ifm\$corr.b)/o.ifm\$corr.a)
+fpkm &lt;- log10(exp(as.matrix(fpkm))+1)
+head(fpkm)
+write.table(fpkm,count_fpkm,row.names=T,col.names=T,sep="\t",quote=F)
+
+o.prior &lt;- scde.expression.prior(
+  models=o.ifm, counts=inp_data,
+  length.out=400, show.plot=F)
+
+ediff &lt;- scde.expression.difference(
+  o.ifm, inp_data,
+  o.prior, groups=inp_data_factor,
+  n.randomizations=100, n.cores=4, verbose=1)
+
+head(ediff[order(ediff\$Z,decreasing=T),])
+
+write.table(ediff[order(abs(ediff\$Z),decreasing=T),],outf,row.names=T,col.names=T,sep="\t",quote=F)
+
+cat("....All Done. End of Script\n")
+</configfile>
+</configfiles>
+
+
+
+        <tests>
+        <test>
+        <param name="input1" value="SCDEwrapper_test1_input.xls" ftype="tabular"/>
+        <param name="job_name" value="test1"/>
+        <param name="runMe" value="$runMe"/>
+        <output name="tab_file" file="SCDEwrapper_test1_output.xls" ftype="tabular"/>
+        </test>
+        </tests>
+        
+
+<help>
+
+**Attribution**
+This Galaxy tool was created by mika.yoshimura@riken.jp at 16/04/2015 10:09:46
+using the Galaxy Tool Factory.
+
+See https://bitbucket.org/fubar/galaxytoolfactory for details of that project
+Please cite: Creating re-usable tools from scripts: The Galaxy Tool Factory. Ross Lazarus; Antony Kaspi; Mark Ziemann; The Galaxy Team. 
+Bioinformatics 2012; doi: 10.1093/bioinformatics/bts573
+
+
+</help>
+<citations>
+    
+    <citation type="doi">10.1093/bioinformatics/bts573</citation>
+</citations>
+</tool>

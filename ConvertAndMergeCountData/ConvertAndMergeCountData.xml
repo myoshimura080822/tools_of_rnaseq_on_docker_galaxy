@@ -1,0 +1,126 @@
+<tool id="ConvertAndMergeCountData" name="ConvertAndMergeCountData" version="0.01">
+<description>column trimming, merge, and value convert to integer</description>
+
+<command interpreter="python">
+
+        ConvertAndMergeCountData.py --script_path "$runMe" --interpreter "python" 
+            --tool_name "SailfishConvertAndMergeColumnForDEG" --input_tab "$input1" --input_wftype "$input_wftype" --input_toint "$input_toint" --output_dir "./" --output_tab "$tab_file" 
+</command>
+<inputs>
+<param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
+<param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="ConvertAndMergeCountData"/> 
+<param name="input_wftype" type="select" label="Chouse of used quantification tool ">
+    <option value="sailfish">use Sailfish</option>
+    <option value="eXpress">use eXpress</option>
+</param>
+<param name="input_toint" type="boolean" truevalue="TRUE" falsevalue="FALSE" checked="true" label="Converting to integer for DEG(ex.edgeR)"/>
+</inputs>
+<outputs>
+ <data format="tabular" name="tab_file" label="${job_name} on ${on_string}"/>
+
+</outputs>
+<configfiles>
+<configfile name="runMe">
+# -*- coding: utf-8 -*-
+import sys
+import os
+import shutil
+import glob
+
+print "python :" + sys.version
+import dateutil.tz
+import pandas as pd
+
+print u"ConvertAndMergeCountData.py Started......"
+
+inp = sys.argv[1]
+inp_wftype = sys.argv[2]
+inp_toint = sys.argv[3]
+outp = sys.argv[4]
+
+print u"inp: " + inp
+print u"inp_wftype: " + inp_wftype
+print u"inp_toint: " + inp_toint
+print u"outp: " + outp
+
+if "sailfish" in inp_wftype:
+    output_name = "quant_bias_corrected"
+    output_chk = "EstimatedNumReads"
+else:
+    output_name = "eXpress on data"
+    output_chk = "eff_counts"
+
+def makeDataframe(fname,out_list):
+    dataf = pd.read_table(fname, delimiter='\t', skiprows=4)
+    pref = os.path.basename(fname) + "_"
+    pref = out_list[out_list.file_name == fname].iloc[0]['sample_name'] + "_"
+    dataf.rename(columns=(lambda x: pref + x if "Transcript" not in x else x), inplace=True)
+    return dataf
+
+def dataout(data, filename):
+    data.to_csv(filename, sep="\t", index=False)
+
+def main():
+    out_list = pd.read_csv(inp, delimiter='\t')
+    #print out_list.head(10)
+    path_list = out_list['file_name']
+    #print path_list.head(10)
+
+    df_list = [makeDataframe(fname, out_list) for fname in path_list]
+    print(str(len(df_list)) + ' files convert to dataframe.')
+    print df_list[0].head(10)
+
+    chk_colname = [len(list(set([y.find(str(output_chk)) for y in list(x.columns.values)]))) for x in df_list]
+    print chk_colname
+
+    if 1 in chk_colname:
+        raise Exception, 'Current history datasets is not ' + inp_wftype + ' output format.'
+    else:
+        m_df = pd.DataFrame(columns=['# Transcript'])
+        for df in df_list:
+            cols = [x for x in df.columns if "Transcript" in x or str(output_chk) in x]
+            #df.ix[:,filter(lambda x: str(output_chk) in x, cols)].astype(int)
+            m_df = pd.merge(m_df, df[cols], on='# Transcript', how='outer', suffixes=['',''])
+
+        if inp_toint == "TRUE":
+            m_df.ix[:,1:] = m_df.ix[:,1:].astype(int)
+        m_df = m_df.reindex_axis(sorted(m_df.columns), axis=1)
+        m_df.rename(columns={'# Transcript' : 'target_id'})
+        m_df.rename(columns=lambda x: x.replace('_' + str(output_chk), ''), inplace=True)
+        print m_df.head(10)
+        dataout(m_df, outp)
+
+if __name__ == '__main__':
+        main()
+</configfile>
+</configfiles>
+
+
+        <tests>
+        <test>
+        <param name="input1" value="SailfishConvertAndMergeColumnForDEG_test1_input.xls" ftype="tabular"/>
+        <param name="job_name" value="test1"/>
+        <param name="runMe" value="$runMe"/>
+        <output name="tab_file" file="SailfishConvertAndMergeColumnForDEG_test1_output.xls" ftype="tabular"/>
+        </test>
+        </tests>
+        
+
+<help>
+
+This Tool trimming, merge, and value convert to integer from Sailfish count-data for DEG.
+
+**Attribution**
+This Galaxy tool was created by mika.yoshimura@riken.jp at 02/02/2015 15:45:05
+using the Galaxy Tool Factory.
+
+See https://bitbucket.org/fubar/galaxytoolfactory for details of that project
+Please cite: Creating re-usable tools from scripts: The Galaxy Tool Factory. Ross Lazarus; Antony Kaspi; Mark Ziemann; The Galaxy Team. 
+Bioinformatics 2012; doi: 10.1093/bioinformatics/bts573
+
+</help>
+<citations>
+    
+    <citation type="doi">10.1093/bioinformatics/bts573</citation>
+</citations>
+</tool>
