@@ -106,8 +106,22 @@ def dl_dset(id, dClient, dir):
     return ret_set
 
 def get_sample_name(path_list, hst_cont_all):
-    tmp01 = [item.split(':')[0].split(' ')[-1] for item in path_list['name']]
-    tmp02 = [item.split(' ')[-1] for item in tmp01]
+    if "sailfish" in inp_wftype:
+        tmp01 = [item.split(':')[0].split(' ')[-1] for item in path_list['name']]
+        tmp02 = [item.split(' ')[-1] for item in tmp01]
+    else:
+        bowtie_id = [item.split(' ')[3] for item in path_list['name']]
+        bowtie_name = [[item['name'] for item in hst_cont_all if item['hid'] == int(hid)] for hid in bowtie_id]
+        bef_split = [item[0].split(':')[0] for item in bowtie_name]
+        if "," in bef_split[0]:
+            reads_id = [item.split(' ')[-1] for item in bef_split]
+            mates_id = [item.split(' ')[5].replace(',','') for item in bef_spliti]
+            mcf_hid = reads_id.extend(mates_id)
+            tmp02 = sorted(mcf_hid)
+            
+        else:
+            tmp02 = [item.split(' ')[-1] for item in bef_split]
+        
     path_list['mcf_hid'] = tmp02
     tmp03 = [[item['name'] for item in hst_cont_all if item['hid'] == int(hid)] for hid in tmp02]
     
