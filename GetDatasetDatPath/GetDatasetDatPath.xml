@@ -115,16 +115,17 @@ def get_sample_name(path_list, hst_cont_all):
         bef_split = [item[0].split(':')[0] for item in bowtie_name]
         if "," in bef_split[0]:
             reads_id = [item.split(' ')[-1] for item in bef_split]
-            mates_id = [item.split(' ')[5].replace(',','') for item in bef_spliti]
-            mcf_hid = reads_id.extend(mates_id)
-            tmp02 = sorted(mcf_hid)
+            print reads_id
+            mates_id = [item.split(' ')[5].replace(',','') for item in bef_split]
+            print mates_id
+            tmp02 = reads_id
             
         else:
             tmp02 = [item.split(' ')[-1] for item in bef_split]
         
     path_list['mcf_hid'] = tmp02
     tmp03 = [[item['name'] for item in hst_cont_all if item['hid'] == int(hid)] for hid in tmp02]
-    
+
     pair_count = 0
     pair_count = [item[0] for item in tmp03 if "mates" in item[0]]
 
