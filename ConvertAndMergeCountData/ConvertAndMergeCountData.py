@@ -206,6 +206,7 @@ class ScriptRunner:
         a(opts.input_wftype)
         a(opts.input_toint)
         a(opts.output_tab)
+        a(opts.output_tab2)
         self.outputFormat = self.opts.output_format
         self.inputFormats = self.opts.input_formats 
         self.test1Input = '%s_test1_input.xls' % self.toolname
@@ -713,6 +714,7 @@ def main():
     a('--input_toint',default="None")
     a('--input_formats',default="tabular,text")
     a('--output_tab',default="None")
+    a('--output_tab2',default="None")
     a('--output_format',default="tabular")
     a('--user_email',default='Unknown')
     a('--bad_user',default=None)
