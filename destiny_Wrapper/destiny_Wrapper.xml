@@ -1,0 +1,162 @@
+<tool id="destiny_Wrapper" name="destiny_Wrapper" version="0.01">
+<description>diffusion maps for large-scale single-cell data in R</description>
+
+<command interpreter="python">
+        destiny_Wrapper.py --script_path "$runMe" --interpreter "Rscript" 
+            --tool_name "destiny_Wrapper" --input_tab "$input1" 
+            #if $custom_input.use_custom_sigma == "true":
+                --input_sigma "$custom_input.sigma"
+            #else
+                --input_sigma 0
+            #end if
+            --output_dir "$html_file.files_path" --output_tab "$tab_file" --output_tab2 "$tab_file2" --output_html "$html_file" --make_HTML "yes" 
+</command>
+<inputs>
+    <param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
+    <param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="destiny_Wrapper"/> 
+    <conditional name="custom_input">    
+        <param name="use_custom_sigma" type="select" label="Using custom value of sigma(gaussian kernel widths)">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+        </param>
+        <when value="true">
+            <param name="sigma" type="text" size="100" value="20" label="Using for m different gaussian kernel widths (sigma)."/>
+        </when>
+    </conditional>
+
+</inputs>
+<outputs>
+  <data format="tabular" name="tab_file" label="${job_name} on ${on_string}_eigenvectors"/>
+  <data format="tabular" name="tab_file2" label="${job_name} on ${on_string}_eigenvalues_and_variances"/>
+  <data format="html" name="html_file" label="${job_name} on ${on_string}_output.html"/>
+</outputs>
+<configfiles>
+<configfile name="runMe">
+library("matrixStats")
+library("stringr")
+library("ggplot2")
+library("reshape2")
+options(rgl.useNULL=TRUE)
+library("rgl")
+library("edgeR")
+library("destiny")
+
+cat("destiny_Wrapper Started......\n")
+cat("\n")
+
+ourargs = commandArgs(TRUE)
+inf = ourargs[1]
+sigma = as.integer(ourargs[2])
+outf = ourargs[3]
+outf2 = ourargs[4]
+cat("input file name:");inf
+cat("input sigma:");sigma
+cat("output file name(1):");outf
+cat("output file name(2):");outf2
+cat("\n")
+
+outp = read.table(inf, sep="\t", comment.char = "", header=T)
+rownames(outp) = outp[,1]
+outp = outp[, -1]
+outp = outp[, order(names(outp))]
+
+#remove no expression genes
+out_matrix = data.matrix(outp)
+idx = rowVars(out_matrix) == 0
+out_matrix = out_matrix[!idx,]
+
+#remove outliner cells
+idx = colVars(out_matrix) &lt; 1
+out_matrix = out_matrix[!idx,]
+
+out_matrix = apply(out_matrix,2,function(x){ifelse(is.nan(x), 0, x)})
+ncol(out_matrix);nrow(out_matrix)
+
+dset = data.frame(out_matrix, stringsAsFactors = FALSE)
+
+celltype = as.data.frame(str_split(colnames(dset), "_"))
+celltype = factor(sort(unname(unlist(celltype[1,]))))
+
+### Normalization &amp; log10(+1) for density
+d.dge = DGEList(counts=out_matrix, group=celltype)
+d = calcNormFactors(d.dge)
+
+tmmScaleFactors = d.dge\$samples\$lib.size * d\$samples\$norm.factors
+tmmExp = round(t(t(d\$counts)/tmmScaleFactors) * mean(tmmScaleFactors))
+counts_tmm = log10(tmmExp + 1)
+sum(is.nan(counts_tmm))
+d_data = t(counts_tmm)
+d_data = d_data[rowSds(d_data) &gt; 0,]
+nrow(d_data);ncol(d_data)
+
+### diffusion map ################################################
+d_df = data.frame(d_data, stringsAsFactors = FALSE)
+d_df\$Cell = celltype
+d_ct = as.ExpressionSet(d_df, annotation.cols = !sapply(d_df,is.double))
+
+if(sigma == 0){
+    sigmas = find.sigmas(d_ct, verbose = FALSE)
+    sigma = optimal.sigma(sigmas)
+}
+
+d_dif = DiffusionMap(d_ct, sigma, density.norm = TRUE, n.eigs = min(30L, nrow(d_ct) - 2L))
+
+### diffusion map Plot ################################################
+png("eigenvalues.png", width=800, height=600)
+print(plot(eigenvalues(d_dif), pch = 20, xlab = 'Diffusion component (DC)', ylab = 'Eigenvalue'))
+dev.off()
+
+plot_d1d2 = qplot(DC1, DC2, data = d_dif, colour = celltype) + theme(legend.title=element_blank()) + ggtitle(substitute(sigma == s, list(s = round(sigma))))
+ggsave(file="plot_DC1DC2.png", plot=plot_d1d2, dpi=100, width=8.5, height=8)
+
+plot_d2d3 = qplot(DC2, DC3, data = d_dif, colour = celltype) + theme(legend.title=element_blank()) + ggtitle(substitute(sigma == s, list(s = round(sigma))))
+ggsave(file="plot_DC2DC3.png", plot=plot_d2d3, dpi=100, width=8.5, height=8)
+
+plot_d1d3 = qplot(DC1, DC3, data = d_dif, colour = celltype) + theme(legend.title=element_blank()) + ggtitle(substitute(sigma == s, list(s = round(sigma))))
+ggsave(file="plot_DC1DC3.png", plot=plot_d1d3, dpi=100, width=8.5, height=8)
+
+# Eigenvectors
+write.table(eigenvectors(d_dif), outf, quote=FALSE, sep="\t")
+
+# Eigenvalues
+eig = eigenvalues(d_dif)
+# Variances in percentage
+variance = eig*100/sum(eig)
+# Cumulative variances
+cumvar = cumsum(variance)
+length(eig)
+eig_dataf = data.frame(row.names=sprintf("PC%d", 1:length(eig)),
+                        eigenvalues=eig, variance=round(variance,digits=3), cumvariance = cumvar)
+write.table(eig_dataf, outf2, quote=FALSE, sep="\t")
+</configfile>
+</configfiles>
+
+
+        <tests>
+        <test>
+        <param name="input1" value="CreateDiffusionMapFromDestiny_test1_input.xls" ftype="tabular"/>
+        <param name="job_name" value="test1"/>
+        <param name="runMe" value="$runMe"/>
+        <output name="tab_file" file="CreateDiffusionMapFromDestiny_test1_output.xls" ftype="tabular"/>
+        </test>
+        </tests>
+        
+
+<help>
+destiny is an easy to use R package allowing for easy creation and plotting of diffusion maps. 
+
+**Attribution**
+This Galaxy tool was created by admin@galaxy.org at 19/08/2015 09:31:41
+using the Galaxy Tool Factory.
+
+See https://bitbucket.org/fubar/galaxytoolfactory for details of that project
+Please cite: Creating re-usable tools from scripts: The Galaxy Tool Factory. Ross Lazarus; Antony Kaspi; Mark Ziemann; The Galaxy Team. 
+Bioinformatics 2012; doi: 10.1093/bioinformatics/bts573
+
+
+</help>
+<citations>
+    
+    <citation type="doi">10.1093/bioinformatics/bts573</citation>
+</citations>
+</tool>
