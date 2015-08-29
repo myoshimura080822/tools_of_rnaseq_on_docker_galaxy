@@ -10,7 +10,7 @@
                 --input_sigma 0
             #end if
             #if $gene_input.plot_expression_pergene == "true":
-                --input_gene "$custom_input.input2"
+                --input_gene "$gene_input.input2"
             #else
                 --input_gene 0
             #end if
@@ -34,7 +34,7 @@
             <option value="false">No</option>
         </param>
         <when value="true">
-            <param name="input2" type="data" format="tabular" label="Select a suitable input file from your history"/>
+            <param name="input2" type="data" format="txt" label="Select a suitable input txt(comma-delimited) from your history"/>
         </when>
     </conditional>
 
@@ -185,7 +185,6 @@ eig_dataf = data.frame(row.names=sprintf("DC%d", 1:length(eig)),
                         eigenvalues=eig, variance=round(variance,digits=3), cumvariance = cumvar)
 write.table(eig_dataf, outf2, quote=FALSE, sep="\t")
 
-if (FALSE){
 #ggplot2 on Celltype
 pdf("plot_celltype_pattern.pdf",paper="a4",width=9.5,height=7,pointsize=8)
 
@@ -278,7 +277,9 @@ plot(ig_DC1DC3,
 title("MST(Celltype) DC1DC3", cex.main=1)
 dev.off()
 
-#if (FALSE){
+### expression count gradation on plot
+if(inf_gene != "0"){
+
 keytype = ifelse(grepl("ENSMUST", rownames(d_ct)[1]),"ENSEMBLTRANS","REFSEQ")
 print(keytype)
 mm = Mus.musculus
@@ -301,8 +302,9 @@ draw_ggplot = function(idlist, gp){
   plist
 }
 
-# test
-idlist = list("ENSMUST00000072119", "ENSMUST00000108023")
+# create id list
+gene_list = read.table(inf_gene, sep=",", comment.char = "", header=F, stringsAsFactors = FALSE)
+idlist = gene_list[1,]
 
 gp = ggplot(data=d_dif, aes(x = DC1, y = DC2, label = celltype))
 plist = draw_ggplot(idlist, gp);length(plist)
@@ -337,13 +339,13 @@ cols = 2
 numplot = 3
 cOrange = "#f39800";cLightBlue = "#0068b7"
 
-for (i in 1:length(idlist)) {
+for (i in 1:length(idlist)){
   par(mfrow=c(1,1))
   gene = mm_ant_ref[grep(idlist[[i]], mm_ant_ref\$REFSEQ), ][[2]]
   genename = paste(gene, idlist[[i]], sep = "_")
   
   cell_i = data.frame(val = d_df[, grepl(idlist[[i]] , names(d_df))], type = d_df\$Cell, row.names=rownames(d_df), stringsAsFactors = FALSE)
-  d = densityplot(~val, data=cell_i, groups = type, plot.points = FALSE, ref = TRUE, auto.key = TRUE, xlab="expression(log10+1)", main=genename, xlim=c(0,5), ylim=c()
+  d = densityplot(~val, data=cell_i, groups = type, plot.points = FALSE, ref = TRUE, auto.key = TRUE, xlab="expression(log10+1)", main=genename, xlim=c(0,5), ylim=c(0,5))
   print(d)
   
   layout = matrix(seq(1, cols * ceiling(numplot/cols)), ncol = cols, nrow = ceiling(numplot/cols))
