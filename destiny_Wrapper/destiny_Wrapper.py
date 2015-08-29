@@ -206,6 +206,7 @@ class ScriptRunner:
         a(opts.input_sigma)
         a(opts.output_tab)
         a(opts.output_tab2)
+        a(opts.input_gene)
         self.outputFormat = self.opts.output_format
         self.inputFormats = self.opts.input_formats 
         self.test1Input = '%s_test1_input.xls' % self.toolname
@@ -716,6 +717,7 @@ def main():
     a('--output_html',default=None)
     a('--input_tab',default="None")
     a('--input_sigma',default="None")
+    a('--input_gene',default="None")
     a('--input_formats',default="tabular,text")
     a('--output_tab',default="None")
     a('--output_tab2',default="None")

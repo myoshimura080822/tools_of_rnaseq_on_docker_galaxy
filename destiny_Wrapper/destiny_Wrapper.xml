@@ -9,6 +9,11 @@
             #else
                 --input_sigma 0
             #end if
+            #if $gene_input.plot_expression_pergene == "true":
+                --input_gene "$custom_input.input2"
+            #else
+                --input_gene 0
+            #end if
             --output_dir "$html_file.files_path" --output_tab "$tab_file" --output_tab2 "$tab_file2" --output_html "$html_file" --make_HTML "yes" 
 </command>
 <inputs>
@@ -21,6 +26,15 @@
         </param>
         <when value="true">
             <param name="sigma" type="text" size="100" value="20" label="Using for m different gaussian kernel widths (sigma)."/>
+        </when>
+    </conditional>
+    <conditional name="gene_input">    
+        <param name="plot_expression_pergene" type="select" label="Plotting gradation of expression per selected gene">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+        </param>
+        <when value="true">
+            <param name="input2" type="data" format="tabular" label="Select a suitable input file from your history"/>
         </when>
     </conditional>
 
@@ -41,6 +55,15 @@ library("rgl")
 library("edgeR")
 library("destiny")
 
+library("spatgraphs")
+library("igraph")
+library("RColorBrewer")
+library("plotrix")
+library("grid")
+library("gridExtra")
+library("lattice")
+library(Mus.musculus)
+
 cat("destiny_Wrapper Started......\n")
 cat("\n")
 
@@ -49,8 +72,10 @@ inf = ourargs[1]
 sigma = as.integer(ourargs[2])
 outf = ourargs[3]
 outf2 = ourargs[4]
+inf_gene = ourargs[5]
 cat("input file name:");inf
 cat("input sigma:");sigma
+cat("input gene:");inf_gene
 cat("output file name(1):");outf
 cat("output file name(2):");outf2
 cat("\n")
@@ -102,18 +127,49 @@ if(sigma == 0){
 d_dif = DiffusionMap(d_ct, sigma, density.norm = TRUE, n.eigs = min(30L, nrow(d_ct) - 2L))
 
 ### diffusion map Plot ################################################
-png("eigenvalues.png", width=800, height=600)
-print(plot(eigenvalues(d_dif), pch = 20, xlab = 'Diffusion component (DC)', ylab = 'Eigenvalue'))
-dev.off()
+#png("eigenvalues.png", width=800, height=600)
+#print(plot(eigenvalues(d_dif), pch = 20, xlab = 'Diffusion component (DC)', ylab = 'Eigenvalue'))
+#dev.off()
 
-plot_d1d2 = qplot(DC1, DC2, data = d_dif, colour = celltype) + theme(legend.title=element_blank()) + ggtitle(substitute(sigma == s, list(s = round(sigma))))
-ggsave(file="plot_DC1DC2.png", plot=plot_d1d2, dpi=100, width=8.5, height=8)
+# Multiple plot function
+multiplot = function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  
+  # Make a list from the ... arguments and plotlist
+  plots = c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout = matrix(seq(1, cols * ceiling(numPlots/cols)), ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx = as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx\$row,
+                                      layout.pos.col = matchidx\$col))
+    }
+  }
+}
 
-plot_d2d3 = qplot(DC2, DC3, data = d_dif, colour = celltype) + theme(legend.title=element_blank()) + ggtitle(substitute(sigma == s, list(s = round(sigma))))
-ggsave(file="plot_DC2DC3.png", plot=plot_d2d3, dpi=100, width=8.5, height=8)
-
-plot_d1d3 = qplot(DC1, DC3, data = d_dif, colour = celltype) + theme(legend.title=element_blank()) + ggtitle(substitute(sigma == s, list(s = round(sigma))))
-ggsave(file="plot_DC1DC3.png", plot=plot_d1d3, dpi=100, width=8.5, height=8)
+#3D plot
+plot3d(eigenvectors(d_dif)[, 1:3], col =as.integer(celltype))
+text3d(eigenvectors(d_dif)[, 1:3], text=as.vector(celltype), cex=1.0, adj=1, scale=0.1)
+writeWebGL(dir=getwd(), snapshot=FALSE, width=600, height=600)
 
 # Eigenvectors
 write.table(eigenvectors(d_dif), outf, quote=FALSE, sep="\t")
@@ -125,9 +181,210 @@ variance = eig*100/sum(eig)
 # Cumulative variances
 cumvar = cumsum(variance)
 length(eig)
-eig_dataf = data.frame(row.names=sprintf("PC%d", 1:length(eig)),
+eig_dataf = data.frame(row.names=sprintf("DC%d", 1:length(eig)),
                         eigenvalues=eig, variance=round(variance,digits=3), cumvariance = cumvar)
 write.table(eig_dataf, outf2, quote=FALSE, sep="\t")
+
+if (FALSE){
+#ggplot2 on Celltype
+pdf("plot_celltype_pattern.pdf",paper="a4",width=9.5,height=7,pointsize=8)
+
+plot_d1d2 = qplot(DC1, DC2, data = d_dif, colour = celltype, alpha=I(0.5), size =I(7)) + theme(legend.title=element_blank()) + ggtitle(paste("DC1DC2/sigma:",as.character(round(sigma)), sep=" "))
+#ggsave(file="plot_DC1DC2.png", plot=plot_d1d2, dpi=100, width=8.5, height=8)
+
+plot_d2d3 = qplot(DC2, DC3, data = d_dif, colour = celltype, alpha=I(0.5), size =I(7)) + theme(legend.title=element_blank()) + ggtitle(paste("DC2DC3/sigma:",as.character(round(sigma)), sep=" "))
+#ggsave(file="plot_DC2DC3.png", plot=plot_d2d3, dpi=100, width=8.5, height=8)
+
+plot_d1d3 = qplot(DC1, DC3, data = d_dif, colour = celltype, alpha=I(0.5), size =I(7)) + theme(legend.title=element_blank()) + ggtitle(paste("DC1DC3/sigma:",as.character(round(sigma)), sep=" "))
+#ggsave(file="plot_DC1DC3.png", plot=plot_d1d3, dpi=100, width=8.5, height=8)
+
+multiplot(plotlist = list(plot_d1d2,plot_d2d3,plot_d1d3), cols=2)
+
+###########################################################################
+### Create MST
+###########################################################################
+x = eigenvectors(d_dif)[, 1]
+y = eigenvectors(d_dif)[, 2]
+z = eigenvectors(d_dif)[, 3]
+n = length(eigenvectors(d_dif)[,1])
+w = c(0, max(eigenvectors(d_dif)))
+
+pp2d_DC1DC2=list(
+  x = x, y = y,
+  n = n,
+  window = list(x = w, y = w)
+)
+
+pp2d_DC2DC3=list(
+  x = y, y = z,
+  n = n,
+  window = list(x = w, y = w)
+)
+
+pp2d_DC1DC3=list(
+  x = x, y = z,
+  n = n,
+  window = list(x = w, y = w)
+)
+
+sg_DC1DC2 = spatgraph(pp2d_DC1DC2, "MST")
+sg_DC2DC3 = spatgraph(pp2d_DC2DC3, "MST")
+sg_DC1DC3 = spatgraph(pp2d_DC1DC3, "MST")
+
+ig_DC1DC2 = sg2igraph(sg_DC1DC2)
+ig_DC2DC3 = sg2igraph(sg_DC2DC3)
+ig_DC1DC3 = sg2igraph(sg_DC1DC3)
+
+#color palette
+exp_cols = colorRampPalette(colors = brewer.pal(9,"Dark2"))
+
+par(mfrow=c(2,2))
+#png("MST plot (Celltype) DC1DC2.png", width=800, height=800)
+plot(ig_DC1DC2,
+    vertex.color=exp_cols(255)[cut(as.integer(celltype),breaks=254)], 
+    vertex.label=c(as.character(celltype)), 
+    vertex.label.color="gray80",
+    vertex.label.font=1,
+    vertex.label.cex=0.5,
+    vertex.frame.color="white",
+    vertex.size = 6,
+    layout=layout.kamada.kawai) 
+title("MST(Celltype) DC1DC2", cex.main=1)
+#dev.off()
+
+#png("MST plot (Celltype) DC2DC3.png", width=800, height=800)
+plot(ig_DC2DC3,
+     vertex.color=exp_cols(255)[cut(as.integer(celltype),breaks=254)], 
+     vertex.label=c(as.character(celltype)), 
+     vertex.label.color="gray80",
+     vertex.label.font=1,
+     vertex.label.cex=0.5,
+     vertex.frame.color="white",
+     vertex.size = 6,
+     layout=layout.kamada.kawai) 
+title("MST(Celltype) DC2DC3", cex.main=1)
+#dev.off()
+
+#png("MST plot (Celltype) DC1DC3.png", width=800, height=800)
+plot(ig_DC1DC3,
+     vertex.color=exp_cols(255)[cut(as.integer(celltype),breaks=254)], 
+     vertex.label=c(as.character(celltype)), 
+     vertex.label.color="gray80",
+     vertex.label.font=1,
+     vertex.label.cex=0.5,
+     vertex.frame.color="white",
+     vertex.size = 6,
+     layout=layout.kamada.kawai) 
+title("MST(Celltype) DC1DC3", cex.main=1)
+dev.off()
+
+#if (FALSE){
+keytype = ifelse(grepl("ENSMUST", rownames(d_ct)[1]),"ENSEMBLTRANS","REFSEQ")
+print(keytype)
+mm = Mus.musculus
+mm_ant_ref = AnnotationDbi::select(mm, keys = keys(mm, keytype=keytype), keytype =keytype, columns = c(keytype, "SYMBOL"))
+names(mm_ant_ref)[1] = paste("REFSEQ")
+mm_ant_ref = subset(mm_ant_ref, select=c("REFSEQ", "SYMBOL"))
+mm_ant_ref = mm_ant_ref[!duplicated(mm_ant_ref\$REFSEQ),]
+head(mm_ant_ref);nrow(mm_ant_ref)
+
+draw_ggplot = function(idlist, gp){
+  plist = list()
+  for (i in 1:length(idlist)) {
+    gene = mm_ant_ref[grep(idlist[[i]], mm_ant_ref\$REFSEQ), ][[2]]
+    genename = paste(gene, idlist[[i]], sep = "_")
+    g = gp +
+      geom_text(alpha = 0.8, size = 2, colour = "black") +
+      ggtitle(genename)
+    plist[[i]] = g
+  }
+  plist
+}
+
+# test
+idlist = list("ENSMUST00000072119", "ENSMUST00000108023")
+
+gp = ggplot(data=d_dif, aes(x = DC1, y = DC2, label = celltype))
+plist = draw_ggplot(idlist, gp);length(plist)
+gp2 = ggplot(data = d_dif, aes(x = DC2, y = DC3, label = celltype))
+plist2 = draw_ggplot(idlist, gp2);length(plist2)
+gp3 = ggplot(data = d_dif, aes(x = DC1, y = DC3, label = celltype))
+plist3 = draw_ggplot(idlist, gp3);length(plist3)
+  
+#color palette
+exp_cols = colorRampPalette(colors = brewer.pal(9,"OrRd"))
+
+exp_MST = function(gene,geneid,igobj){
+  expression = tmmExp[rownames(tmmExp) == geneid,]
+  genename = paste(gene,geneid,sep = "_")
+  par(mar=c(2, 0, 2, 0))
+  pp = plot(igobj,
+            vertex.color=exp_cols(255)[cut(expression,breaks=254)],
+            vertex.label=c(as.character(celltype)),
+            vertex.label.color="gray70",
+            vertex.label.font=1,
+            vertex.label.cex=0.5,
+            vertex.frame.color="white",
+            vertex.size = 6,
+            layout=layout.kamada.kawai)
+  title(genename, cex.main=1)
+  col.labels = c("Low Exp", "High Exp")
+  color.legend(-0.5,-1.2,0.5,-1.1, legend=col.labels, rect.col=brewer.pal(9,"OrRd"))
+}
+
+pdf(paste("plot_expression_pattern.pdf",sep="_"),paper="a4",width=9.5,height=7,pointsize=8)
+cols = 2
+numplot = 3
+cOrange = "#f39800";cLightBlue = "#0068b7"
+
+for (i in 1:length(idlist)) {
+  par(mfrow=c(1,1))
+  gene = mm_ant_ref[grep(idlist[[i]], mm_ant_ref\$REFSEQ), ][[2]]
+  genename = paste(gene, idlist[[i]], sep = "_")
+  
+  cell_i = data.frame(val = d_df[, grepl(idlist[[i]] , names(d_df))], type = d_df\$Cell, row.names=rownames(d_df), stringsAsFactors = FALSE)
+  d = densityplot(~val, data=cell_i, groups = type, plot.points = FALSE, ref = TRUE, auto.key = TRUE, xlab="expression(log10+1)", main=genename, xlim=c(0,5), ylim=c()
+  print(d)
+  
+  layout = matrix(seq(1, cols * ceiling(numplot/cols)), ncol = cols, nrow = ceiling(numplot/cols))
+  grid.newpage()
+  pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+  
+  exp = tmmExp[rownames(tmmExp) == idlist[[i]], ]
+  
+  # Get the i,j matrix positions of the regions that contain this subplot
+  matchidx = as.data.frame(which(layout == 1, arr.ind = TRUE))
+  plt = plist[[i]] +
+    geom_point(alpha=.5, size = 7, aes(colour = exp)) +
+    scale_color_gradient(low=cLightBlue, high=cOrange) +
+    guides(color = guide_colorbar())
+  print(plt, vp = viewport(layout.pos.row = matchidx\$row, layout.pos.col = matchidx\$col))
+  
+  matchidx = as.data.frame(which(layout == 2, arr.ind = TRUE))
+  plt2 = plist2[[i]] +
+    geom_point(alpha=.5, size = 7, aes(colour = exp)) +
+    scale_color_gradient(low=cLightBlue, high=cOrange) +
+    guides(color = guide_colorbar())
+  print(plt2, vp = viewport(layout.pos.row = matchidx\$row, layout.pos.col = matchidx\$col))
+  
+  matchidx = as.data.frame(which(layout == 3, arr.ind = TRUE))
+  plt3 = plist3[[i]] +
+    geom_point(alpha=.5, size = 7, aes(colour = exp)) +
+    scale_color_gradient(low=cLightBlue, high=cOrange) +
+    guides(color = guide_colorbar())
+    print(plt3, vp = viewport(layout.pos.row = matchidx\$row, layout.pos.col = matchidx\$col))
+  #dev.off()
+  
+  #png(paste("plot_exp_mst",idlist[[i]],".png",sep="_"), width=1600, height=600)
+  par(mfrow=c(2,2))
+  exp_MST(gene,idlist[[i]],ig_DC1DC2)
+  exp_MST(gene,idlist[[i]],ig_DC2DC3)
+  exp_MST(gene,idlist[[i]],ig_DC1DC3)
+  #dev.off()
+}
+dev.off()
+}
+
 </configfile>
 </configfiles>
 
