@@ -40,13 +40,12 @@ deg_type = ifelse((ncol(deg_output)==4),"edger","scde")
 print(deg_type)
 
 deg_output\$REFSEQ &lt;- rownames(deg_output)
-ref_key = ifelse(grepl("ENSMUST",deg_output\$REFSEQ[1]),22,17)
-print(ref_key)
 
 mm = Mus.musculus
-mm_ant_ref&lt;- select(mm, keys=keys(mm, keytype=keytypes(mm)[ref_key]), columns=columns(mm)[c(ref_key,18)], keytype=keytypes(mm)[ref_key])
+keytype = ifelse(grepl("ENSMUST", rownames(deg_output)[1]),"ENSEMBLTRANS","REFSEQ")
+print(keytype)
+mm_ant_ref = AnnotationDbi::select(mm, keys = keys(mm, keytype=keytype), keytype =keytype, columns = c(keytype, "SYMBOL"))
 names(mm_ant_ref)[1] &lt;- paste("REFSEQ")
-
 mm_ant_ref &lt;- subset(mm_ant_ref, select=c("REFSEQ", "SYMBOL"))
 mm_ant_ref &lt;- mm_ant_ref[!duplicated(mm_ant_ref\$REFSEQ),]
 head(mm_ant_ref);nrow(mm_ant_ref)
