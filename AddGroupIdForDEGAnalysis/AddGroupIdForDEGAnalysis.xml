@@ -4,10 +4,11 @@
 <command interpreter="python">
 
         AddGroupIdForDEGAnalysis.py --script_path "$runMe" --interpreter "python" 
-            --tool_name "AddHeaderForEdgeR" --input_tab "$input1"   --output_dir "./" --output_tab "$tab_file"
+            --tool_name "AddHeaderForEdgeR" --input_tab "$input1" --input_int "$input2" --output_dir "./" --output_tab "$tab_file"
 </command>
 <inputs>
 <param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
+<param name="input2"  type="text" label="Please input a number of cell-name index in column-name(separated '_')" value="1"/> 
 <param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="AddGroupIdForDEGAnalysis"/>
 </inputs>
 <outputs>
@@ -23,20 +24,26 @@ print "python :" + sys.version
 import dateutil.tz
 import pandas as pd
 pd.set_option('multi_sparse', False)
+from collections import OrderedDict
 
 print u"AddGroupIdForDEGAnalysis.py Started......"
 
 inp = sys.argv[1]
+idx = sys.argv[2]
 print u"inp: " + inp
-outp = sys.argv[2]
+print u"Group name idx: " + idx
+outp = sys.argv[3]
 print u"outp: " + outp
+g_idx = int(idx) - 1
 
 def makeGroupname(col_name):
-        d = {}
+        d = OrderedDict()
         for name in col_name:
-            key = name.split('_')[0]
+            key = name.split('_')[g_idx]
             d.setdefault(key,[])
             d[key].append(0)
+        #od = collections.OrderedDict(sorted(d.keys()))
+        #d = sorted(d.items(), key=lambda x: x[0])
         print d
 
         glist = [ u"G" + str((x + 1)) + u":" + y for x,y in enumerate(d.keys()) ]

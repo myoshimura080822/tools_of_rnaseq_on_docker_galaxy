@@ -203,6 +203,7 @@ class ScriptRunner:
         else:
             a('-') # stdin
         a(opts.input_tab)
+        a(opts.input_int)
         a(opts.output_tab)
         self.outputFormat = self.opts.output_format
         self.inputFormats = self.opts.input_formats 
@@ -707,6 +708,7 @@ def main():
     a('--output_dir',default='./')
     a('--output_html',default=None)
     a('--input_tab',default="None")
+    a('--input_int',default="None")
     a('--input_formats',default="tabular,text")
     a('--output_tab',default="None")
     a('--output_format',default="tabular")

@@ -3,14 +3,15 @@
 
 <command interpreter="python">
         destiny_Wrapper.py --script_path "$runMe" --interpreter "Rscript" 
-            --tool_name "destiny_Wrapper" --input_tab "$input1" 
+            --tool_name "destiny_Wrapper" --input_tab "$input1" --input_int "$input2" 
             #if $custom_input.use_custom_sigma == "true":
-                --input_sigma "$custom_input.sigma"
+                --input_sigma "$custom_input.sigma" 
             #else
-                --input_sigma 0
+                --input_sigma 0 
             #end if
+            --plot_pergene "$gene_input.plot_expression_pergene"
             #if $gene_input.plot_expression_pergene == "true":
-                --input_gene "$gene_input.input2"
+                --input_gene "$gene_input.input_gene"
             #else
                 --input_gene 0
             #end if
@@ -18,6 +19,7 @@
 </command>
 <inputs>
     <param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
+    <param name="input2"  type="text" label="Please input a number of cell-name index in column-name(separated '_')" value="1"/>
     <param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="destiny_Wrapper"/> 
     <conditional name="custom_input">    
         <param name="use_custom_sigma" type="select" label="Using custom value of sigma(gaussian kernel widths)">
@@ -34,7 +36,7 @@
             <option value="false">No</option>
         </param>
         <when value="true">
-            <param name="input2" type="data" format="txt" label="Select a suitable input txt(comma-delimited) from your history"/>
+            <param name="input_gene" type="data" format="txt" label="Select a suitable input txt(comma-delimited) from your history"/>
         </when>
     </conditional>
 
@@ -69,12 +71,17 @@ cat("\n")
 
 ourargs = commandArgs(TRUE)
 inf = ourargs[1]
-sigma = as.integer(ourargs[2])
-outf = ourargs[3]
-outf2 = ourargs[4]
+cell_idx = ourargs[2]
+sigma = as.integer(ourargs[3])
+plot_pergene = ourargs[4]
 inf_gene = ourargs[5]
+outf = ourargs[6]
+outf2 = ourargs[7]
 cat("input file name:");inf
+cat("cell name index: ");cell_idx
+cell_idx = as.integer(cell_idx)
 cat("input sigma:");sigma
+cat("plot_pergene:");plot_pergene
 cat("input gene:");inf_gene
 cat("output file name(1):");outf
 cat("output file name(2):");outf2
@@ -87,12 +94,14 @@ outp = outp[, order(names(outp))]
 
 #remove no expression genes
 out_matrix = data.matrix(outp)
+sum(rowVars(out_matrix) == 1)
 idx = rowVars(out_matrix) == 0
 out_matrix = out_matrix[!idx,]
 
 #remove outliner cells
-idx = colVars(out_matrix) &lt; 1
-out_matrix = out_matrix[!idx,]
+sum(colVars(out_matrix)&lt;1)
+idx = colVars(out_matrix)&lt;1
+out_matrix = out_matrix[,!idx]
 
 out_matrix = apply(out_matrix,2,function(x){ifelse(is.nan(x), 0, x)})
 ncol(out_matrix);nrow(out_matrix)
@@ -100,7 +109,8 @@ ncol(out_matrix);nrow(out_matrix)
 dset = data.frame(out_matrix, stringsAsFactors = FALSE)
 
 celltype = as.data.frame(str_split(colnames(dset), "_"))
-celltype = factor(sort(unname(unlist(celltype[1,]))))
+celltype = factor(sort(unname(unlist(celltype[cell_idx,]))))
+celltype
 
 ### Normalization &amp; log10(+1) for density
 d.dge = DGEList(counts=out_matrix, group=celltype)
@@ -186,15 +196,15 @@ eig_dataf = data.frame(row.names=sprintf("DC%d", 1:length(eig)),
 write.table(eig_dataf, outf2, quote=FALSE, sep="\t")
 
 #ggplot2 on Celltype
-pdf("plot_celltype_pattern.pdf",paper="a4",width=9.5,height=7,pointsize=8)
+pdf("plot_celltype_pattern.pdf",paper="a4",width=9.5,height=7,pointsize=6)
 
-plot_d1d2 = qplot(DC1, DC2, data = d_dif, colour = celltype, alpha=I(0.5), size =I(7)) + theme(legend.title=element_blank()) + ggtitle(paste("DC1DC2/sigma:",as.character(round(sigma)), sep=" "))
+plot_d1d2 = qplot(DC1, DC2, data = d_dif, colour = celltype, alpha=I(0.5), size =I(4)) + theme(legend.title=element_blank()) + ggtitle(paste("DC1DC2/sigma:",as.character(round(sigma)), sep=" "))
 #ggsave(file="plot_DC1DC2.png", plot=plot_d1d2, dpi=100, width=8.5, height=8)
 
-plot_d2d3 = qplot(DC2, DC3, data = d_dif, colour = celltype, alpha=I(0.5), size =I(7)) + theme(legend.title=element_blank()) + ggtitle(paste("DC2DC3/sigma:",as.character(round(sigma)), sep=" "))
+plot_d2d3 = qplot(DC2, DC3, data = d_dif, colour = celltype, alpha=I(0.5), size =I(4)) + theme(legend.title=element_blank()) + ggtitle(paste("DC2DC3/sigma:",as.character(round(sigma)), sep=" "))
 #ggsave(file="plot_DC2DC3.png", plot=plot_d2d3, dpi=100, width=8.5, height=8)
 
-plot_d1d3 = qplot(DC1, DC3, data = d_dif, colour = celltype, alpha=I(0.5), size =I(7)) + theme(legend.title=element_blank()) + ggtitle(paste("DC1DC3/sigma:",as.character(round(sigma)), sep=" "))
+plot_d1d3 = qplot(DC1, DC3, data = d_dif, colour = celltype, alpha=I(0.5), size =I(4)) + theme(legend.title=element_blank()) + ggtitle(paste("DC1DC3/sigma:",as.character(round(sigma)), sep=" "))
 #ggsave(file="plot_DC1DC3.png", plot=plot_d1d3, dpi=100, width=8.5, height=8)
 
 multiplot(plotlist = list(plot_d1d2,plot_d2d3,plot_d1d3), cols=2)
@@ -278,7 +288,7 @@ title("MST(Celltype) DC1DC3", cex.main=1)
 dev.off()
 
 ### expression count gradation on plot
-if(inf_gene != "0"){
+if(plot_pergene == "true"){
 
 keytype = ifelse(grepl("ENSMUST", rownames(d_ct)[1]),"ENSEMBLTRANS","REFSEQ")
 print(keytype)
@@ -334,7 +344,7 @@ exp_MST = function(gene,geneid,igobj){
   color.legend(-0.5,-1.2,0.5,-1.1, legend=col.labels, rect.col=brewer.pal(9,"OrRd"))
 }
 
-pdf(paste("plot_expression_pattern.pdf",sep="_"),paper="a4",width=9.5,height=7,pointsize=8)
+pdf(paste("plot_expression_pattern.pdf",sep="_"),paper="a4",width=9.5,height=7,pointsize=6)
 cols = 2
 numplot = 3
 cOrange = "#f39800";cLightBlue = "#0068b7"
@@ -344,6 +354,9 @@ for (i in 1:length(idlist)){
   gene = mm_ant_ref[grep(idlist[[i]], mm_ant_ref\$REFSEQ), ][[2]]
   genename = paste(gene, idlist[[i]], sep = "_")
   
+  val = d_df[, grepl(idlist[[i]] , names(d_df))] 
+  if (length(val) == 0) next
+
   cell_i = data.frame(val = d_df[, grepl(idlist[[i]] , names(d_df))], type = d_df\$Cell, row.names=rownames(d_df), stringsAsFactors = FALSE)
   d = densityplot(~val, data=cell_i, groups = type, plot.points = FALSE, ref = TRUE, auto.key = TRUE, xlab="expression(log10+1)", main=genename, xlim=c(0,5), ylim=c(0,5))
   print(d)
@@ -357,7 +370,7 @@ for (i in 1:length(idlist)){
   # Get the i,j matrix positions of the regions that contain this subplot
   matchidx = as.data.frame(which(layout == 1, arr.ind = TRUE))
   plt = plist[[i]] +
-    geom_point(alpha=.5, size = 7, aes(colour = exp)) +
+    geom_point(alpha=.5, size = 6, aes(colour = exp)) +
     scale_color_gradient(low=cLightBlue, high=cOrange) +
     guides(color = guide_colorbar())
   print(plt, vp = viewport(layout.pos.row = matchidx\$row, layout.pos.col = matchidx\$col))

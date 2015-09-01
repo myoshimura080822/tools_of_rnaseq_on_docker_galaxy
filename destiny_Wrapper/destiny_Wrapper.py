@@ -92,6 +92,7 @@ import tarfile
 import re
 import shutil
 import math
+from galaxy.util import unicodify
 
 progname = os.path.split(sys.argv[0])[1] 
 myversion = 'V001.1 March 2014' 
@@ -203,10 +204,12 @@ class ScriptRunner:
         else:
             a('-') # stdin
         a(opts.input_tab)
+        a(opts.input_int)
         a(opts.input_sigma)
+        a(opts.plot_pergene)
+        a(opts.input_gene)
         a(opts.output_tab)
         a(opts.output_tab2)
-        a(opts.input_gene)
         self.outputFormat = self.opts.output_format
         self.inputFormats = self.opts.input_formats 
         self.test1Input = '%s_test1_input.xls' % self.toolname
@@ -664,19 +667,19 @@ o.close()
             
             stdout_data, stderr_data = p.communicate()
             p.stdin.close()
-	    #retval = p.wait()
+            #retval = p.wait()
             retval = p.returncode
 
             if self.opts.output_dir:
                 sto.close()
                 ste.close()
-		err = stderr_data
+                err = unicodify(stderr_data)
                 #err = open(self.elog,'r').readlines()
 	    
             print >> sys.stdout, stdout_data
-
- 	    if retval <> 0 and err: # problem
-                    print >> sys.stderr,err
+            
+            if retval <> 0 and err: # problem
+                print >> sys.stderr,err
 
             if self.opts.make_HTML:
                 self.makeHtml()
@@ -716,7 +719,9 @@ def main():
     a('--output_dir',default='./')
     a('--output_html',default=None)
     a('--input_tab',default="None")
+    a('--input_int',default="None")
     a('--input_sigma',default="None")
+    a('--plot_pergene',default="None")
     a('--input_gene',default="None")
     a('--input_formats',default="tabular,text")
     a('--output_tab',default="None")
