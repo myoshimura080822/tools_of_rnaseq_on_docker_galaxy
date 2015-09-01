@@ -92,13 +92,15 @@ import tarfile
 import re
 import shutil
 import math
-from galaxy.util import unicodify
 
 progname = os.path.split(sys.argv[0])[1] 
 myversion = 'V001.1 March 2014' 
 verbose = False 
 debug = False
 toolFactoryURL = 'https://bitbucket.org/fubar/galaxytoolfactory'
+
+reload(sys)  
+sys.setdefaultencoding('utf8')
 
 # if we do html we need these dependencies specified in a tool_dependencies.xml file and referred to in the generated
 # tool xml
@@ -673,13 +675,13 @@ o.close()
             if self.opts.output_dir:
                 sto.close()
                 ste.close()
-                err = unicodify(stderr_data)
+                err = stderr_data
                 #err = open(self.elog,'r').readlines()
 	    
             print >> sys.stdout, stdout_data
             
             if retval <> 0 and err: # problem
-                print >> sys.stderr,err
+                print >> sys.stderr,err.encode('raw_unicode_escape').decode('ascii')
 
             if self.opts.make_HTML:
                 self.makeHtml()
