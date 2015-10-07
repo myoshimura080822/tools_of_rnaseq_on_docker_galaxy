@@ -134,7 +134,7 @@ if(sigma == 0){
     sigma = optimal.sigma(sigmas)
 }
 
-d_dif = DiffusionMap(d_ct, sigma, density.norm = TRUE, n.eigs = min(30L, nrow(d_ct) - 2L))
+d_dif = DiffusionMap(d_ct, sigma, density.norm = TRUE)
 
 ### diffusion map Plot ################################################
 #png("eigenvalues.png", width=800, height=600)
