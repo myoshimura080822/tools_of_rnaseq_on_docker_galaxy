@@ -10,6 +10,7 @@
 <param name="input1"  type="data" format="tabular" label="Select a suitable input file from your history"/> 
 <param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="ConvertAndMergeCountData"/> 
 <param name="input_wftype" type="select" label="Chouse of used quantification tool ">
+    <option value="sailfish_0.9">use Sailfish v0.9</option>
     <option value="sailfish">use Sailfish</option>
     <option value="eXpress">use eXpress</option>
 </param>
@@ -46,11 +47,16 @@ print u"inp_toint: " + inp_toint
 print u"outp: " + outp
 print u"outp2: " + outp2
 
-if "sailfish" in inp_wftype:
+if inp_wftype == "sailfish":
     output_name = "quant_bias_corrected"
     output_chk = "EstimatedNumReads"
     output_normal = "KPKM"
     join_col = "# Transcript"
+elif "sailfish_0.9" in inp_wftype:
+    output_name = "quant"
+    output_chk = "NumReads"
+    output_normal = "TPM"
+    join_col = "Name"
 else:
     output_name = "eXpress on data"
     output_chk = "eff_counts"
@@ -58,7 +64,7 @@ else:
     output_normal = "fpkm"
 
 def makeDataframe(fname,out_list):
-    if "sailfish" in inp_wftype:
+    if inp_wftype == "sailfish":
         dataf = pd.read_table(fname, delimiter='\t', skiprows=4)
     else:
         dataf = pd.read_table(fname, delimiter='\t')
@@ -76,7 +82,7 @@ def merge_countdata(df_list, outcol):
     if inp_toint == "TRUE":
         m_df.ix[:,1:] = m_df.ix[:,1:].astype(int)
         
-    if not "sailfish" in inp_wftype:
+    if not inp_wftype == "sailfish":
         m_df.rename(columns={join_col : '#' + join_col}, inplace=True)
 
     print m_df.columns

@@ -1,0 +1,103 @@
+
+<tool id="Sailfish_v0.9_Wrapper" name="Sailfish_v0.9_Wrapper" version="0.01">
+    <description>wrapper of Sailfish, transcript quantification tool</description>
+    <version_command>sailfish -version</version_command>
+    <!-- <expand macro="requirements" /> -->
+    <requirements>
+        <requirement type="package" version="0.9.2">sailfish</requirement>
+    </requirements>
+    <command>
+<![CDATA[
+    touch ./tmp_job.sh;echo "#!/bin/bash" > ./tmp_job.sh;
+        echo "sailfish quant -i ${filter(lambda x:str(x[0]) == str($index_path), $__app__.tool_data_tables['sailfish_custom_indexes'].get_fields())[0][-1]}
+            -p 4 --biasCorrect
+            #if $single_or_paired.single_or_paired_opts == 'single':
+                -l \"U\"
+                -r <(gzip -dcf $single_or_paired.input_singles)
+            #else:
+                #if $single_or_paired.orientation == "same":
+                    #if $single_or_paired.strandedness == "sense":
+                        -l \"MSF\"
+                    #elif $single_or_paired.strandedness == "antisense":
+                        -l \"MSR\"
+                    #else:
+                        -l \"MU\"
+                    #end if
+                #elif $single_or_paired.orientation == "away":
+                    #if $single_or_paired.strandedness == "sense":
+                        -l \"OSF\"
+                    #elif $single_or_paired.strandedness == "antisense":
+                        -l \"OSR\"
+                    #else:
+                        -l \"OU\"
+                    #end if
+                #else:
+                    #if $single_or_paired.strandedness == "sense":
+                        -l \"ISF\"
+                    #elif $single_or_paired.strandedness == "antisense":
+                        -l \"ISR\"
+                    #else:
+                        -l \"IU\"
+                    #end if
+                #end if
+                -1 <(gzip -dcf $single_or_paired.input_mate1)
+                -2 <(gzip -dcf $single_or_paired.input_mate2)
+            #end if
+         -o ./ " >> ./tmp_job.sh;
+         chmod 755 ./tmp_job.sh;
+         bash ./tmp_job.sh >> $log 2>&1;
+]]>
+    </command>
+    <!-- <expand macro="stdio" /> -->
+    <inputs>
+        <param name="index_path" type="select" label="Select a sailfish index">
+            <options from_data_table="sailfish_0.9_indexes">
+                <validator type="no_options" message="No index are available"/>
+            </options>
+        </param>
+        <conditional name="single_or_paired">
+            <param name="single_or_paired_opts" type="select" label="Is this library mate-paired?">
+              <option value="single">Single-end</option>
+              <option value="paired">Paired-end</option>
+            </param>
+            <when value="single">
+                <param name="input_singles" type="data" format="fastqsanger,fastqillumina,fastq,fastq.gz,fasta" label="FASTQ/FASTA file" help="FASTQ file." />
+            </when>
+            <when value="paired">
+                <param name="input_mate1" type="data" format="fastqsanger,fastqillumina,fastq,fastq.gz,fasta" label="Mate pair 1" help="FASTQ file." />
+                <param name="input_mate2" type="data" format="fastqsanger,fastqillumina,fastq,fastq.gz,fasta" label="Mate pair 2" help="FASTQ file." />
+                <param name="orientation" type="select" label="Relative orientation of reads within a pair">
+                    <option value="same">Mates are oriented in the same direction</option>
+                    <option value="away">Mates are oriented away from each other</option>
+                    <option value="toward" selected="True">Mates are oriented toward each other</option>
+                </param>
+                <param name="strandedness" type="select" label="Specifies the strandedness of the reads">
+                    <option value="sense">sense strand</option>
+                    <option value="antisense">antisense strand</option>
+                    <option value="unknown" selected="True">unknown strandedness</option>
+                </param>
+            </when>
+        </conditional>
+        <!-- <expand macro="input_conditional_index" /> -->
+    </inputs>
+    <outputs>
+        <data name="log"   format="txt" label="${tool.name} on ${on_string}: log"/>
+        <data name="quant" format="txt" from_work_dir="quant.sf" label="${tool.name} on ${on_string}: quant"/>
+        <data name="quant_bias_corrected" format="txt" from_work_dir="quant_bias_corrected.sf" label="${tool.name} on ${on_string}: quant_bias_corrected"/>
+        <data name="meta_info" format="txt" from_work_dir="aux/meta_info.json" label="${tool.name} on ${on_string}: meta_info"/>
+    </outputs>
+    <tests>
+    </tests>
+    <help>
+<![CDATA[
+
+**References**
+
+If you use this Galaxy tool in work leading to a scientific publication please
+cite the following:
+
+
+]]>
+    </help>
+</tool>
+
