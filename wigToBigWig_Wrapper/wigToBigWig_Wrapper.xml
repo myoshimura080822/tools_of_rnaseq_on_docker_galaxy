@@ -1,0 +1,51 @@
+
+<tool id="wigToBigWig_Wrapper" name="wigToBigWig_Wrapper" version="0.01">
+    <description>created bigwig file from wiggle (wig) type files</description>
+    <!-- <expand macro="requirements" /> -->
+    <requirements>
+    </requirements>
+    <command>
+<![CDATA[
+    /galaxy/wigToBigWig "$input" "$genome" "$outfile"
+]]>
+    </command>
+    <!-- <expand macro="stdio" /> -->
+    <inputs>
+        <param name="input" type="data" format="wig" label="Input file"/>
+        <param name="genome" type="data" label="Chromosome size file (tab or space separated)" format="txt,tabular" help="(--chromSize)"/>
+        <!-- <expand macro="input_conditional_index" /> -->
+    </inputs>
+    <outputs>
+        <data format="bigwig" name="outfile" />
+    </outputs>
+    <tests>
+    </tests>
+    <help>
+<![CDATA[
+
+bam2wig.py
+++++++++++
+
+Wrapper tool of the Kent C library to efficiently convert a WIG file to a BigWig file
+
+Inputs
+++++++++++++++
+
+Input BAM file
+    Alignment file in wig format
+
+Chromosome size file
+    Tab or space separated text file with 2 columns: first column is chromosome name, second column is size of the chromosome. Chromosome names (s
+uch as "chr1") should be consistent between this file and BAM file.
+
+Outputs
+++++++++++++++
+
+one bigwig file will be generated
+
+http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/
+
+]]>
+    </help>
+</tool>
+
