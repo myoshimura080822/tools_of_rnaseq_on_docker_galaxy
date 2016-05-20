@@ -1,0 +1,141 @@
+<tool id="GetGalaxywigToBigWigDatasetNames" name="GetGalaxywigToBigWigDatasetNames" version="0.01">
+<description>get samplename from bigWig dataset</description>
+
+<command interpreter="python">
+
+        GetGalaxywigToBigWigDatasetNames.py --script_path "$runMe" --interpreter "python" 
+            --tool_name "GetGalaxywigToBigWigDatasetNames" --inp_apikey "$inp_apikey" --inp_hname "$inp_hname" --output_dir "./" --output_tab "$tab_file" 
+</command>
+<inputs>
+    <param name="job_name" type="text" label="Supply a name for the outputs to remind you what they contain" value="wigToBigWigSampleList"/> 
+    <param name="inp_apikey" size="50" type="text" label="Copy and Paste your API_KEY from Menu-bar[User]>[API keys]>[Current API key] " value="">
+        <validator type="empty_field" message="No API_KEY is available for the input text form"/>
+    </param>
+    <param name="inp_hname" size="30" type="text" label="Supply your Current history name from top of history pain " value="">
+        <validator type="empty_field" message="No Current hitory name is available for the input text form"/>
+    </param>
+</inputs>
+<outputs>
+ <data format="tabular" name="tab_file" label="${job_name} on current history"/>
+
+</outputs>
+<configfiles>
+<configfile name="runMe">
+import sys
+import os
+print "python :" + sys.version
+import ConfigParser
+import dateutil.tz
+import bioblend
+from bioblend.galaxy import GalaxyInstance
+from bioblend.galaxy.histories import HistoryClient
+from bioblend.galaxy.datasets import DatasetClient
+import pandas
+
+print  os.getcwd()
+print u"GetQuantityCountInfo.py Started......"
+
+inp = sys.argv[1]
+inp_apikey = sys.argv[2]
+inp_hname = sys.argv[3]
+
+outp = sys.argv[4]
+
+print u"inp: " + inp
+print u"inp_apikey: " + inp_apikey
+print u"inp_hname: " + inp_hname
+print u"outp: " + outp
+
+if len(inp_apikey.strip()) == 0:
+    raise Exception, ' API_KEY is not entered.'
+
+if len(inp_hname.strip()) == 0:
+    raise Exception, 'Current History Name is not entered.'
+
+output_name = "wigToBigWig_Wrapper"
+
+def findDatfilePath(dClient, h_list, hname):
+
+    dset_list = [dset for dset in [dClient.show_dataset(hst['id']) for hst in h_list]
+        if dset['state'] == "ok" and dset['peek'] is not None]
+    dset_df = pandas.DataFrame(dset_list)
+    dset_list = dset_df[["hid","name","id"]]
+    print dset_list
+    return dset_list
+
+def get_sample_name(path_list, hst_cont_all):
+    tmp01 = [item.split(':')[0].split(' ')[-1] for item in path_list['name']]
+    tmp02 = [item.split(' ')[-1] for item in tmp01]
+    path_list['wig_hid'] = tmp02
+    tmp03 = [[item['name'] for item in hst_cont_all if item['hid'] == int(hid)] for hid in tmp02]
+    tmp04 = [item[0].replace(' and data ','|').split('|')[1] for item in tmp03]
+    path_list['sample_hid'] = tmp04
+    tmp05 = [[item['name'] for item in hst_cont_all if item['hid'] == int(hid)] for hid in tmp04]
+    tmp06 = [item[0].split('.')[0] for item in tmp05]
+    path_list['sample_name'] = tmp06
+    if os.path.isfile("/galaxy-central/tool-data/sailfish_0.9_index.loc"):
+        path_list = path_list.drop_duplicates(subset=['sample_name'], take_last=True)
+    else:
+        path_list = path_list.drop_duplicates(cols='sample_name', take_last=True)
+    return path_list
+
+def dataout(data, filename):
+    data.to_csv(filename, sep="\t")
+
+def main():
+    GALAXY_URL = 'http://localhost:80/'
+    API_KEY = inp_apikey
+    gInstance = GalaxyInstance(url=GALAXY_URL, key=API_KEY)
+    hClient = HistoryClient(gInstance)
+    dClient = DatasetClient(gInstance)
+
+    hst = [x for x in hClient.get_histories() if x['name'].strip() == inp_hname.strip()][0]
+    if len(hst['id']) == 0:
+        raise Exception, inp_hname + ' is not found. please check your current history name.'
+    print hst['id']
+    hst_cont_all = hClient.show_history(hst['id'], deleted=False, contents=True, visible=True, details=True)
+    hst_cont_ok = [x for x in hst_cont_all if str(output_name) in x['name'] and x['deleted'] == False and x['state'] == 'ok' ]
+    if (len(hst_cont_ok) &gt; 0):
+        path_list = findDatfilePath(dClient, hst_cont_ok, hst['name'])
+        out_list = get_sample_name(path_list, hst_cont_all)
+        dataout(out_list, outp)
+    else:
+        'bigWig dataset is not found.'
+
+if __name__ == '__main__':
+        main()
+
+print u"....All Done. End of Script"
+</configfile>
+</configfiles>
+
+
+        <tests>
+        <test>
+        <param name="input1" value="GetSailfishCountInfo_test1_input.xls" ftype="None"/>
+        <param name="job_name" value="test1"/>
+        <param name="runMe" value="$runMe"/>
+        <output name="tab_file" file="GetSailfishCountInfo_test1_output.xls" ftype="tabular"/>
+        </test>
+        </tests>
+        
+
+<help>
+
+This tool get datfile-path from Sailfish read count info outputs.
+
+**Attribution**
+This Galaxy tool was created by mika.yoshimura@riken.jp at 03/06/2015 11:30:14
+using the Galaxy Tool Factory.
+
+See https://bitbucket.org/fubar/galaxytoolfactory for details of that project
+Please cite: Creating re-usable tools from scripts: The Galaxy Tool Factory. Ross Lazarus; Antony Kaspi; Mark Ziemann; The Galaxy Team. 
+Bioinformatics 2012; doi: 10.1093/bioinformatics/bts573
+
+</help>
+<citations>
+    
+    <citation type="doi">10.1093/bioinformatics/bts573</citation>
+</citations>
+</tool>
+

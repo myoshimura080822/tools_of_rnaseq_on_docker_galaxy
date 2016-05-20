@@ -23,7 +23,7 @@
     <help>
 <![CDATA[
 
-bam2wig.py
+wigToBigWig_Wrapper
 ++++++++++
 
 Wrapper tool of the Kent C library to efficiently convert a WIG file to a BigWig file
